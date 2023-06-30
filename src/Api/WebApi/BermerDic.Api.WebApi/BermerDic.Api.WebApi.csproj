@@ -10,4 +10,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Infrastructere\BermerDic.Infrastructere.Persistence\BermerDic.Infrastructere.Persistence.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -36,7 +36,7 @@ namespace BermerDic.Infrastructere.Persistence.Context
         {
             if (!optionsBuilder.IsConfigured)
             {
-                var connStr = "Data Source=localhost;Initial Catalog=bermerdic;Persist Security Info=True;User ID=sa;Password=Mert1";
+                var connStr = "Data Source=localhost;Initial Catalog=bermerdic;Integrated Security=True";
 
                 optionsBuilder.UseSqlServer(connStr, opt =>
                 {

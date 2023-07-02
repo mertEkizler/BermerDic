@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Core\BermerDic.Api.Application\BermerDic.Api.Application.csproj" />
     <ProjectReference Include="..\..\Core\BermerDic.Api.Domain\BermerDic.Api.Domain.csproj" />
   </ItemGroup>
 

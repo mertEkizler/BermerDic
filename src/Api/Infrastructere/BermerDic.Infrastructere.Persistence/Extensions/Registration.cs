@@ -19,11 +19,6 @@ namespace BermerDic.Infrastructere.Persistence.Extensions
                 });
             });
 
-            // the code just worked one time
-
-            //var seedData = new SeedData();
-            //seedData.SeedAsync(configuration).GetAwaiter().GetResult();
-
             return services;
         }
     }   

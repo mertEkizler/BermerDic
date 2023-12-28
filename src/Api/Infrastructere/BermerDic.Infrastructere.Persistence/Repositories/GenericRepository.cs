@@ -34,10 +34,10 @@ namespace BermerDic.Infrastructere.Persistence.Repositories
             return _dbContext.SaveChanges();
         }
 
-        public virtual async Task<int> AddAsync(TEntity entity)
+        public async Task<int> AddAsync(TEntity entity)
         {
             await this.entity.AddAsync(entity);
-            return await _dbContext.SaveChangesAsync();
+            return await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
 
         public int AddOrUpdate(TEntity entity)
@@ -51,45 +51,65 @@ namespace BermerDic.Infrastructere.Persistence.Repositories
             return _dbContext.SaveChanges();
         }
 
-        public Task<int> AddOrUpdateAsync(TEntity entity)
+        public async Task<int> AddOrUpdateAsync(TEntity entity)
         {
             // check the entity with the id already tracked.
-            if (!this.entity.Local.Any(i=> EqualityComparer<Guid>.Default.Equals(i.Id, entity.Id)))
+            if (!this.entity.Local.Any(i => EqualityComparer<Guid>.Default.Equals(i.Id, entity.Id)))
             {
                 _dbContext.Update(entity);
             }
 
-            return _dbContext.SaveChangesAsync();
+            return await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
 
         public IQueryable<TEntity> AsQueryable()
         {
-            throw new NotImplementedException();
+            return entity.AsQueryable();
         }
 
-        public Task BulkAddAsync(IEnumerable<TEntity> entities)
+        public async Task BulkAddAsync(IEnumerable<TEntity> entities)
         {
-            throw new NotImplementedException();
+            if (entities != null && entities.Any())
+            {
+                await entity.AddRangeAsync(entities);
+                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+            }
         }
 
-        public Task BulkDeleteAsync(IEnumerable<TEntity> entities)
+        public async Task BulkDeleteAsync(IEnumerable<TEntity> entities)
         {
-            throw new NotImplementedException();
+            if (entities != null && entities.Any())
+            {
+                entity.RemoveRange(entities);
+                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+            }
         }
 
-        public Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate)
+        public async Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate)
         {
-            throw new NotImplementedException();
+            var entitiesToDelete = entity.Where(predicate);
+            entity.RemoveRange(entitiesToDelete);
+            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
 
-        public Task BulkDeleteByIdAsync(IEnumerable<Guid> ids)
+        public async Task BulkDeleteByIdAsync(IEnumerable<Guid> ids)
         {
-            throw new NotImplementedException();
+            var entitiesToDelete = await entity.Where(e => ids.Contains(e.Id)).ToListAsync();
+            entity.RemoveRange(entitiesToDelete);
+            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
 
-        public Task BulkUpdateAsync(IEnumerable<TEntity> entities)
+        public async Task BulkUpdateAsync(IEnumerable<TEntity> entities)
         {
-            throw new NotImplementedException();
+            if (entities != null && entities.Any())
+            {
+                foreach (var entity in entities)
+                {
+                    _dbContext.Entry(entity).State = EntityState.Modified;
+                }
+
+                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+            }
         }
 
         public int Delete(TEntity entity)
@@ -110,7 +130,7 @@ namespace BermerDic.Infrastructere.Persistence.Repositories
             return Delete(entityToBeDeleted);
         }
 
-        public virtual Task<int> DeleteAsync(TEntity entity)
+        public async Task<int> DeleteAsync(TEntity entity)
         {
             if (_dbContext.Entry(entity).State == EntityState.Detached)
             {
@@ -119,30 +139,33 @@ namespace BermerDic.Infrastructere.Persistence.Repositories
 
             this.entity.Remove(entity);
 
-            return _dbContext.SaveChangesAsync();
+            return await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
 
-        public virtual Task<int> DeleteAsync(Guid Id)
+        public Task<int> DeleteAsync(Guid Id)
         {
             var entityToBeDeleted = this.entity.Find(Id);
             return DeleteAsync(entityToBeDeleted);
         }
 
-        public virtual bool DeleteRange(Expression<Func<TEntity, bool>> predicate)
+        public bool DeleteRange(Expression<Func<TEntity, bool>> predicate)
         {
             _dbContext.RemoveRange(predicate);
             return _dbContext.SaveChanges() > 0;
         }
 
-        public virtual async Task<bool> DeleteRangeAsync(Expression<Func<TEntity, bool>> predicate)
+        public async Task<bool> DeleteRangeAsync(Expression<Func<TEntity, bool>> predicate)
         {
             _dbContext.RemoveRange(predicate);
-            return await _dbContext.SaveChangesAsync() > 0;
+            var savingChanges = await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+            return savingChanges > 0;
         }
 
-        public Task<TEntity> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, bool noTracking = true, params Expression<Func<TEntity, object>>[] includes)
+        public async Task<TEntity> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, bool noTracking = true, params Expression<Func<TEntity, object>>[] includes)
         {
-            throw new NotImplementedException();
+            var query = GetQueryable(noTracking, includes);
+
+            return await query.FirstOrDefaultAsync(predicate).ConfigureAwait(false);
         }
 
         public IQueryable<TEntity> Get(Expression<Func<TEntity, bool>> predicate, bool noTracking = true, params Expression<Func<TEntity, object>>[] includes)
@@ -164,24 +187,49 @@ namespace BermerDic.Infrastructere.Persistence.Repositories
             return query;
         }
 
-        public Task<IReadOnlyList<TEntity>> GetAllAsync(bool noTracking = true)
+        public async Task<IReadOnlyList<TEntity>> GetAllAsync(bool noTracking = true)
         {
-            throw new NotImplementedException();
+            var query = noTracking ? entity.AsNoTracking() : entity;
+
+            return await query.ToListAsync().ConfigureAwait(false);
         }
 
-        public Task<TEntity> GetByIdAsync(Guid id, bool noTracking = true, params Expression<Func<TEntity, object>>[] includes)
+        public async Task<TEntity> GetByIdAsync(Guid id, bool noTracking = true, params Expression<Func<TEntity, object>>[] includes)
         {
-            throw new NotImplementedException();
+            var query = entity.AsQueryable();
+
+            if (noTracking)
+            {
+                query = query.AsNoTracking();
+            }
+
+            query = ApplyIncludes(query, includes);
+
+            return await query.FirstOrDefaultAsync(e => e.Id == id).ConfigureAwait(false);
         }
 
-        public Task<IReadOnlyList<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, bool noTracking = true, Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null, params Expression<Func<TEntity, object>>[] includes)
+        public async Task<IReadOnlyList<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, bool noTracking = true, Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null, params Expression<Func<TEntity, object>>[] includes)
         {
-            throw new NotImplementedException();
+            var query = GetQueryable(noTracking, includes);
+
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
+            }
+
+            if (orderBy != null)
+            {
+                query = orderBy(query);
+            }
+
+            return await query.ToListAsync().ConfigureAwait(false);
         }
 
-        public Task<TEntity> GetSingleAsync(Expression<Func<TEntity, bool>> predicate, bool noTracking = true, params Expression<Func<TEntity, object>>[] includes)
+        public async Task<TEntity> GetSingleAsync(Expression<Func<TEntity, bool>> predicate, bool noTracking = true, params Expression<Func<TEntity, object>>[] includes)
         {
-            throw new NotImplementedException();
+            var query = GetQueryable(noTracking, includes);
+
+            return await query.SingleOrDefaultAsync(predicate).ConfigureAwait(false);
         }
 
         public int Update(TEntity entity)
@@ -192,12 +240,12 @@ namespace BermerDic.Infrastructere.Persistence.Repositories
             return _dbContext.SaveChanges();
         }
 
-        public virtual async Task<int> UpdateAsync(TEntity entity)
+        public async Task<int> UpdateAsync(TEntity entity)
         {
             this.entity.Attach(entity);
             _dbContext.Entry(entity).State = EntityState.Modified;
 
-            return await _dbContext.SaveChangesAsync();
+            return await _dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
 
         private static IQueryable<TEntity> ApplyIncludes(IQueryable<TEntity> query, params Expression<Func<TEntity, object>>[] includes)
@@ -209,6 +257,20 @@ namespace BermerDic.Infrastructere.Persistence.Repositories
                     query = query.Include(includeItem);
                 }
             }
+
+            return query;
+        }
+
+        private IQueryable<TEntity> GetQueryable(bool noTracking, params Expression<Func<TEntity, object>>[] includes)
+        {
+            var query = entity.AsQueryable();
+
+            if (noTracking)
+            {
+                query = query.AsNoTracking();
+            }
+
+            query = ApplyIncludes(query, includes);
 
             return query;
         }
